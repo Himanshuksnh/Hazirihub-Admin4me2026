@@ -38,6 +38,7 @@ export async function GET(
           isCurrent: data.isCurrent || false,
           isArchived: data.isArchived || false,
           startDate: data.startDate || data.createdAt,
+          createdAt: data.createdAt || new Date().toISOString(),
           subjects: data.subjects || [],
           timetable: data.timetable || [],
           attendance: data.attendance || []
