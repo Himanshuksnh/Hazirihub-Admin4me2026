@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFirestore } from '@/lib/firebase-admin';
+import { getFirestore, initializeFirebaseAdmin } from '@/lib/firebase-admin';
 
 export async function GET(request: Request) {
   try {
@@ -8,7 +8,24 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
 
+    const admin = initializeFirebaseAdmin();
     const db = getFirestore();
+    
+    // Get all users from Firebase Authentication
+    const authUsers = await admin.auth().listUsers();
+    const authUsersMap = new Map();
+    
+    authUsers.users.forEach(user => {
+      if (user.email) {
+        authUsersMap.set(user.email, {
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          createdAt: user.metadata.creationTime,
+          lastActive: user.metadata.lastSignInTime
+        });
+      }
+    });
+    
     const snapshot = await db.collection('users').get();
     const users = [];
 
@@ -27,13 +44,15 @@ export async function GET(request: Request) {
         currentSemesterId = currentSemDoc.data().semesterId;
       }
 
+      const authUser = authUsersMap.get(userEmail);
+      
       users.push({
         email: userEmail,
-        name: userEmail.split('@')[0],
-        photoURL: null,
+        name: authUser?.displayName || userEmail.split('@')[0],
+        photoURL: authUser?.photoURL || null,
         currentSemesterId,
-        lastActive: new Date().toISOString(),
-        createdAt: new Date().toISOString()
+        lastActive: authUser?.lastActive || new Date().toISOString(),
+        createdAt: authUser?.createdAt || new Date().toISOString()
       });
     }
 

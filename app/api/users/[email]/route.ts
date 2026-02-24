@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFirestore } from '@/lib/firebase-admin';
+import { getFirestore, initializeFirebaseAdmin } from '@/lib/firebase-admin';
 
 export async function GET(
   request: Request,
@@ -8,7 +8,22 @@ export async function GET(
   try {
     const params = await context.params;
     const email = decodeURIComponent(params.email);
+    
+    const admin = initializeFirebaseAdmin();
     const db = getFirestore();
+
+    // Get user from Firebase Authentication
+    let authUser = null;
+    try {
+      const userRecord = await admin.auth().getUserByEmail(email);
+      authUser = {
+        displayName: userRecord.displayName,
+        photoURL: userRecord.photoURL,
+        createdAt: userRecord.metadata.creationTime
+      };
+    } catch (error) {
+      console.log('User not found in Auth:', email);
+    }
 
     const semestersSnapshot = await db
       .collection('users')
@@ -47,10 +62,10 @@ export async function GET(
 
     return NextResponse.json({
       email,
-      name: email.split('@')[0],
-      photoURL: null,
+      name: authUser?.displayName || email.split('@')[0],
+      photoURL: authUser?.photoURL || null,
       currentSemesterId,
-      createdAt: semesters[0]?.createdAt || new Date().toISOString(),
+      createdAt: authUser?.createdAt || semesters[0]?.createdAt || new Date().toISOString(),
       semesters
     });
   } catch (error) {
